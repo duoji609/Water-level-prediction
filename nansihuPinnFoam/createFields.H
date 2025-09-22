@@ -1,0 +1,120 @@
+
+    label inputSize;
+    label hiddenSize;
+    label outputSize;
+    label minibatch;
+    label inputElementary;
+  
+    scalar deltaT = runTime.controlDict().get<scalar>("writeInterval");
+    scalar startTime = runTime.controlDict().get<scalar>("startTime");
+    scalar totalArea = 4.12956e+08;
+    scalar stage_min=31.15;//31.3;//31.3;//31.5;//31.6;//32;//31.3;
+    scalar stage_max=35.1;//34;//35.0;//34.8;//34.8;//34.5;//33;//35.1;
+    
+    scalar U_min=0;
+    scalar U_max=0.4;
+    
+   
+   // std::string file_name = "pinnParameters"; 
+    
+    const std::string inputDir = "input";
+    const std::string outputDir = "joint";
+    const std::string predictDir = "predict";
+    label numFiles;             
+    label numFiles_predict; 
+    //label riverNum = 1;
+
+    #include "volFieldsFwd.H"
+
+   
+    //DynamicList<label> hiddenLayers;
+    scalar optimizerStep;
+    scalar BFGS_learningRate;
+
+    // - Maximal number of training iterations.
+    std::size_t maxIterations;
+    std::size_t BFGS_maxIterations;
+    
+    volScalarField stage 
+    (
+        IOobject
+        (
+            "stage",
+            runTime.timeName(), 
+            mesh, 
+            IOobject::MUST_READ,
+            IOobject::AUTO_WRITE
+        ),
+        mesh
+    );
+    
+    volScalarField Ux
+    (
+        IOobject
+        (
+            "Ux",
+            runTime.timeName(), 
+            mesh, 
+            IOobject::MUST_READ,
+            IOobject::AUTO_WRITE
+        ),
+        mesh
+    );
+    
+    volScalarField Uy
+    (
+        IOobject
+        (
+            "Uy",
+            runTime.timeName(), 
+            mesh, 
+            IOobject::MUST_READ,
+            IOobject::AUTO_WRITE
+        ),
+        mesh
+    );
+    
+    volScalarField stage_nn("stage_nn", stage);
+    volScalarField Ux_nn("Ux_nn", Ux);
+    volScalarField Uy_nn("Uy_nn", Uy);
+    
+    
+    volScalarField stage_residual
+    (
+        IOobject
+        (
+            "stage_residual",
+            runTime.timeName(), 
+            mesh, 
+            IOobject::NO_READ,
+            IOobject::AUTO_WRITE
+        ),
+        mesh,
+        dimensionedScalar("stage_residual", dimLength, 0.0)
+    );
+    
+    // Initialize from system/fvSolution.AI.approximator sub-dict.
+    {
+        const fvSolution& fvSolutionDict (mesh);
+        const dictionary& aiDict = fvSolutionDict.subDict("AI");
+
+        //hiddenLayers = aiDict.get<DynamicList<label>>("hiddenLayers");
+        optimizerStep = aiDict.get<scalar>("optimizerStep");
+        BFGS_learningRate = aiDict.get<scalar>("BFGS_learningRate");
+        maxIterations = aiDict.get<label>("maxIterations");
+        BFGS_maxIterations = aiDict.get<label>("BFGS_maxIterations");
+        inputSize = aiDict.get<label>("inputSize");
+        inputElementary = aiDict.get<label>("inputElementary");
+        hiddenSize = aiDict.get<label>("hiddenSize");
+        outputSize = aiDict.get<label>("outputSize");
+        minibatch = aiDict.get<label>("minibatch");
+        numFiles = aiDict.get<label>("numFiles_input");
+        numFiles_predict = aiDict.get<label>("numFiles_predict");
+    }
+    
+    // Use double-precision floating-point arithmetic. 
+    torch::set_default_dtype(
+        torch::scalarTypeToTypeMeta(torch::kDouble)
+    );
+    
+    
